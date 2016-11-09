@@ -26,6 +26,10 @@
 >
 	<!-- import calabash extension library to enable use of delete-file step -->
 	<p:import href="http://xmlcalabash.com/extension/steps/library-1.0.xpl"/>
+	<p:import href="xproc-z-library.xpl"/>
+	
+	<!-- import NER RDF library for sending oai data to SPARQL store -->
+	<p:import href="ner-rdf.xpl"/>
 	
 	<!-- the harvest step should have "delete" and "update" sequence output ports,
 	and also a "high-water-mark" output port that emits either zero or one document
@@ -215,6 +219,12 @@
 				<p:pipe step="handle-list-records-response" port="source"/>
 			</p:iteration-source>
 			<p:variable name="identifier" select="encode-for-uri(/oai:record/oai:header/oai:identifier)"/>
+			<!-- pull out the URL of the document within which we want to recognise names -->
+			<p:variable 
+				name="document-identifier" 
+				select="/oai:record/oai:metadata/oai_dc:dc/dc:identifier[starts-with(., 'http://apo.org.au/files/')][1]"
+				xmlns:oai_dc="http://www.openarchives.org/OAI/2.0/oai_dc/"
+				xmlns:dc="http://purl.org/dc/elements/1.1/"/>
 			<!-- cache the harvested record -->
 			<p:store name="save-record">
 				<p:with-option name="href" select="concat($cache, '/', encode-for-uri($identifier), '.xml')"/>
@@ -246,21 +256,32 @@
 			
 			<!-- TODO refactor to make handling all the harvester's output a separate module -->
 			<p:group name="ner">
-				<!-- pull out the URL of the document within which we want to recognise names -->
-				<p:variable name="document-identifier" select="/oai:record/oai:metadata/oai_dc:dc/dc:identifier"
-					xmlns:oai_dc="http://www.openarchives.org/OAI/2.0/oai_dc/"
-					xmlns:dc="http://purl.org/dc/elements/1.1/"/>
 				<!-- download the document (using cache), perform NER on it, and convert the results to RDF -->
-				<ner:generate-rdf-from-web xmlns:ner="https://github.com/Conal-Tuohy/NER-RDF-Pipeline">
+				<ner:generate-rdf-from-web name="mined-data" xmlns:ner="https://github.com/Conal-Tuohy/NER-RDF-Pipeline">
 					<p:with-option name="href" select="$document-identifier"/>
 					<p:with-option name="cache-location" select="concat($cache, '/resources/')"/>
 					<p:with-option name="resource-base-uri" select="$resource-base-uri"/>
 				</ner:generate-rdf-from-web>
 				<!-- store the RDF -->
-				<corbicula:store-graph>
-					<p:with-option name="graph-store" select="$document-identifier"/>
-					<p:with-option name="graph-uri" select="/*/@xml:base"/>
-				</corbicula:store-graph>
+				<p:try>
+					<p:group>
+						<corbicula:store-graph>
+							<p:with-option name="graph-store" select="$graph-store"/>
+							<p:with-option name="graph-uri" select="$identifier"/>
+		<!--					<p:with-option name="graph-uri" select="/*/@xml:base"/>-->
+						</corbicula:store-graph>
+						<!-- TODO cache the RDF here for checking -->
+						<p:store name="save-data-mined-graph">
+							<p:with-option name="href" select="concat($cache, '/', encode-for-uri($identifier), '.rdf')"/>
+							<p:input port="source">
+								<p:pipe step="mined-data" port="result"/>
+							</p:input>
+						</p:store>			
+					</p:group>
+					<p:catch>
+						<p:sink/>
+					</p:catch>
+				</p:try>
 			</p:group>
 			
 		</p:for-each>			
@@ -314,6 +335,7 @@
 		<p:option name="set" required="true"/>
 		
 		<p:for-each>
+			<!-- QAZ resumption token handling can be disabled while testing by adding predicate [true=false] -->
 			<p:iteration-source select="/oai:OAI-PMH[oai:ListRecords/oai:resumptionToken]"/>
 			<p:template name="resumption-request">
 				<p:with-param name="request-uri" select="$request-uri"/>

@@ -43,7 +43,7 @@
 	<xsl:template match="/xhtml:html">
 		<rdf:RDF>
 			<xsl:attribute name="xml:base"><xsl:value-of select="$resource-base-uri"/></xsl:attribute>
-			<foaf:Document rdf:ID="document-{$document-id}">
+			<foaf:Document rdf:about="document-{$document-id}">
 				<xsl:for-each select="$names">
 					<foaf:topic>
 						<!-- describe the Named Entity recognised -->
@@ -54,7 +54,7 @@
 							<xsl:attribute name="foaf:name">
 								<xsl:value-of select="@content"/>
 							</xsl:attribute>
-							<xsl:attribute name="rdf:ID">
+							<xsl:attribute name="rdf:about">
 								<xsl:apply-templates mode="id" select="."/>
 							</xsl:attribute>
 						</xsl:element>
@@ -62,20 +62,35 @@
 				</xsl:for-each>
 			</foaf:Document>
 			<xsl:for-each-group select="$names" group-by="@content">
-				<sim:Association rdf:ID="references-{$document-id}-{translate(encode-for-uri(translate(@content, ' ', '_')), '%', '_')}">
-					<sim:subject rdf:resource="document-{$document-id}"/>
-					<sim:weight rdf:datatype="http://www.w3.org/2001/XMLSchema#int">
-						<xsl:variable name="name-text" select="@content"/>
-						<xsl:value-of select="count(/xhtml:html/xhtml:body//xhtml:a[.=$name-text])"/>
-					</sim:weight>
-					<xsl:for-each select="current-group()">
-						<xsl:variable name="name-id">
-							<xsl:apply-templates mode="id" select="."/>
-						</xsl:variable>
-						<sim:object rdf:resource="{$name-id}"/>
-					</xsl:for-each>
-				</sim:Association>
+				<xsl:variable name="name-text" select="@content"/>
+				<xsl:variable name="count" select="count(/xhtml:html/xhtml:body//xhtml:a[.=$name-text])"/>
+				<xsl:if test="$count &gt; 0">
+					<sim:Association rdf:about="references-{$document-id}-{translate(encode-for-uri(translate(@content, ' ', '_')), '%', '_')}">
+						<sim:subject rdf:resource="document-{$document-id}"/>
+						<sim:weight rdf:datatype="http://www.w3.org/2001/XMLSchema#int">
+							<xsl:value-of select="$count"/>
+						</sim:weight>
+						<xsl:for-each select="current-group()">
+							<xsl:variable name="name-id">
+								<xsl:apply-templates mode="id" select="."/>
+							</xsl:variable>
+							<sim:object rdf:resource="{$name-id}"/>
+						</xsl:for-each>
+					</sim:Association>
+				</xsl:if>
 			</xsl:for-each-group>
+		</rdf:RDF>
+	</xsl:template>
+	
+	<xsl:template match="/c:*" xmlns:c="http://www.w3.org/ns/xproc-step">
+		<rdf:RDF>
+			<xsl:attribute name="xml:base"><xsl:value-of select="$resource-base-uri"/></xsl:attribute>
+			<foaf:Document rdf:about="document-{$document-id}">
+				<rdfs:comment>failed to parse <xsl:value-of select="$document-file-name"/></rdfs:comment>
+				<xsl:for-each select="//c:error">
+					<rdfs:comment><xsl:value-of select="."/></rdfs:comment>
+				</xsl:for-each>
+			</foaf:Document>
 		</rdf:RDF>
 	</xsl:template>
 	
