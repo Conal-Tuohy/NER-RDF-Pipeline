@@ -5,6 +5,12 @@
 	xmlns:cx="http://xmlcalabash.com/ns/extensions"
 	xmlns:ner="https://github.com/Conal-Tuohy/NER-RDF-Pipeline"
 	name="http-get" type="ner:http-get">
+	<p:documentation>
+		This pipeline implements an http cache.
+		The pipeline first checks if the document identified by the href parameter is present in the cache. The cache does not implement any expiration strategy; which means it is currently only suitable for static content.
+		If the document is present, it is returned, otherwise it is downloaded and cached.
+		Internally, the document URI is hashed to a single byte value, which is used as the name for the folder in which the document is stored. This will divide the cache into 256 sub-folders, and thereby reduce the number of files in the cache folder. 
+	</p:documentation>
 	
 	<p:import href="http://xmlcalabash.com/extension/steps/library-1.0.xpl"/>
 	<p:output port="result"/>
@@ -83,55 +89,5 @@
 			</p:catch>
 		</p:try>
 	</p:group>
-
-	<!--
-	<p:template name="load-document">
-		<p:with-param name="input-file" select="$input-file"/>
-		<p:input port="source"><p:empty/></p:input>
-		<p:input port="template">
-			<p:inline>
-				<c:request href="{$input-file}" method="GET"/>
-			</p:inline>
-		</p:input>
-	</p:template>
-	<p:http-request/>
-	<p:template name="recognise-entities">
-		<p:input port="parameters"><p:empty/></p:input>
-		<p:input port="template">
-			<p:inline>
-				<c:request href="http://localhost:9998/tika" method="PUT" detailed="true">
-					<c:header name="Accept" value="text/xml"/>
-					{/c:body}
-				</c:request>
-			</p:inline>
-		</p:input>
-	</p:template>
-	<p:http-request name="tika"/>
-	<p:xslt name="upconvert-ner-results">
-		<p:input port="parameters"><p:empty/></p:input>
-		<p:input port="source" select="/c:response/c:body/*">
-			<p:pipe step="tika" port="result"/>
-		</p:input>
-		<p:input port="stylesheet">
-			<p:document href="ner-xhtml-to-marked-up-html.xsl"/>
-		</p:input>
-	</p:xslt>
-	<p:store indent="true">
-		<p:with-option name="href" select="concat($input-file, '.xhtml')"/>
-	</p:store>
-	<p:xslt name="convert-ner-results-to-rdf">
-		<p:with-param name="document-file-name" select="replace($input-file, '(.*/)', '')"/>
-		<p:with-param name="resource-base-uri" select=" 'http://apo.conaltuohy.com/resource/' "/>
-		<p:input port="source">
-			<p:pipe step="upconvert-ner-results" port="result"/>
-		</p:input>
-		<p:input port="stylesheet">
-			<p:document href="ner-xhtml-to-rdf.xsl"/>
-		</p:input>
-	</p:xslt>
-	<p:store indent="true">
-		<p:with-option name="href" select="concat($input-file, '.rdf')"/>
-	</p:store>
-	-->
 	
 </p:declare-step>
