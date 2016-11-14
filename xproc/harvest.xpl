@@ -23,6 +23,7 @@
 	xmlns:oai="http://www.openarchives.org/OAI/2.0/"
 	xmlns:pxf="http://exproc.org/proposed/steps/file"
 	xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	xmlns:cx="http://xmlcalabash.com/ns/extensions"
 >
 	<!-- import calabash extension library to enable use of delete-file step -->
 	<p:import href="http://xmlcalabash.com/extension/steps/library-1.0.xpl"/>
@@ -257,11 +258,11 @@
 			<!-- TODO refactor to make handling all the harvester's output a separate module -->
 			<p:group name="ner">
 				<!-- download the document (using cache), perform NER on it, and convert the results to RDF -->
-				<ner:generate-rdf-from-web name="mined-data" xmlns:ner="https://github.com/Conal-Tuohy/NER-RDF-Pipeline">
-					<p:with-option name="href" select="$document-identifier"/>
+				<ner:generate-rdf name="mined-data" xmlns:ner="https://github.com/Conal-Tuohy/NER-RDF-Pipeline">
+					<p:with-option name="document-uri" select="$document-identifier"/>
 					<p:with-option name="cache-location" select="concat($cache, '/resources/')"/>
 					<p:with-option name="resource-base-uri" select="$resource-base-uri"/>
-				</ner:generate-rdf-from-web>
+				</ner:generate-rdf>
 				<!-- store the RDF -->
 				<p:try>
 					<p:group>
@@ -337,6 +338,14 @@
 		<p:for-each>
 			<!-- QAZ resumption token handling can be disabled while testing by adding predicate [true=false] -->
 			<p:iteration-source select="/oai:OAI-PMH[oai:ListRecords/oai:resumptionToken]"/>
+			<cx:message name="about-to-resume-harvest">
+				<p:with-option name="message" select="
+					concat(
+						'Resuming harvest with token ', 
+						/oai:OAI-PMH/oai:ListRecords/oai:resumptionToken
+					)
+				"/>
+			</cx:message>
 			<p:template name="resumption-request">
 				<p:with-param name="request-uri" select="$request-uri"/>
 				<p:with-param name="base-uri" select="$base-uri"/>

@@ -63,6 +63,9 @@
 				<p:load>
 					<p:with-option name="href" select="$file-name"/>
 				</p:load>
+				<cx:message name="document-loaded-from-cache">
+					<p:with-option name="message" select="concat('Read from cache: ', $href)"/>
+				</cx:message>
 			</p:group>
 			<p:catch>				
 				<file:mkdir fail-on-error="false">
@@ -77,7 +80,13 @@
 						</p:inline>
 					</p:input>
 				</p:template>
+				<cx:message name="about-to-download">
+					<p:with-option name="message" select="concat('Downloading: ', $href)"/>
+				</cx:message>
 				<p:http-request name="download"/>
+				<cx:message name="about-to-cache-downloaded-file">
+					<p:with-option name="message" select="concat('Caching download: ', $href)"/>
+				</cx:message>
 				<p:store>
 					<p:with-option name="href" select="$file-name"/>
 				</p:store>				

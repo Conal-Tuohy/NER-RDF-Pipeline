@@ -11,8 +11,8 @@
 	xmlns:dct="http://purl.org/dc/elements/1.1/">
 	
 	<xsl:param name="resource-base-uri"/>
-	<xsl:param name="document-file-name"/>
-	<xsl:variable name="document-id" select="translate(encode-for-uri($document-file-name), '%', '_')"/>
+	<xsl:param name="document-uri"/>
+	<xsl:variable name="document-id" select="translate(encode-for-uri($document-uri), '%', '_')"/>
 	
 	<!-- the list of names recognised by the Stanford NER --> 
 	<xsl:variable name="names" select="
@@ -43,7 +43,7 @@
 	<xsl:template match="/xhtml:html">
 		<rdf:RDF>
 			<xsl:attribute name="xml:base"><xsl:value-of select="$resource-base-uri"/></xsl:attribute>
-			<foaf:Document rdf:about="document-{$document-id}">
+			<foaf:Document rdf:about="{$document-uri}">
 				<xsl:for-each select="$names">
 					<foaf:topic>
 						<!-- describe the Named Entity recognised -->
@@ -66,7 +66,7 @@
 				<xsl:variable name="count" select="count(/xhtml:html/xhtml:body//xhtml:a[.=$name-text])"/>
 				<xsl:if test="$count &gt; 0">
 					<sim:Association rdf:about="references-{$document-id}-{translate(encode-for-uri(translate(@content, ' ', '_')), '%', '_')}">
-						<sim:subject rdf:resource="document-{$document-id}"/>
+						<sim:subject rdf:resource="{$document-uri}"/>
 						<sim:weight rdf:datatype="http://www.w3.org/2001/XMLSchema#int">
 							<xsl:value-of select="$count"/>
 						</sim:weight>
@@ -85,8 +85,8 @@
 	<xsl:template match="/c:*" xmlns:c="http://www.w3.org/ns/xproc-step">
 		<rdf:RDF>
 			<xsl:attribute name="xml:base"><xsl:value-of select="$resource-base-uri"/></xsl:attribute>
-			<foaf:Document rdf:about="document-{$document-id}">
-				<rdfs:comment>failed to parse <xsl:value-of select="$document-file-name"/></rdfs:comment>
+			<foaf:Document rdf:about="{$document-uri}">
+				<rdfs:comment>failed to parse <xsl:value-of select="$document-uri"/></rdfs:comment>
 				<xsl:for-each select="//c:error">
 					<rdfs:comment><xsl:value-of select="."/></rdfs:comment>
 				</xsl:for-each>
