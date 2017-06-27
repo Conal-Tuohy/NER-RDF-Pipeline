@@ -8,19 +8,20 @@
 	xmlns:xhtml="http://www.w3.org/1999/xhtml"
 	xmlns:sim="http://purl.org/ontology/similarity/"
 	xmlns:geo="http://www.w3.org/2003/01/geo/wgs84_pos#"
-	xmlns:dct="http://purl.org/dc/elements/1.1/">
+	xmlns:dct="http://purl.org/dc/elements/1.1/"
+	xmlns:c="http://www.w3.org/ns/xproc-step">
 	
 	<xsl:param name="resource-base-uri"/>
 	<xsl:param name="document-uri"/>
 	<xsl:variable name="document-id" select="translate(encode-for-uri($document-uri), '%', '_')"/>
 	
 	<!-- the list of names recognised by the Stanford NER --> 
+	<!-- excluding any personal names consist of a single word e.g. "Arthur" -->
 	<xsl:variable name="names" select="
 		/xhtml:html/xhtml:head/xhtml:meta[
-			@name=(
-				'NER_PERSON', 
-				'NER_LOCATION', 
-				'NER_ORGANIZATION'
+			@name=('NER_LOCATION', 'NER_ORGANIZATION') or
+			(
+				@name='NER_PERSON' and contains(normalize-space(@content), ' ')
 			)
 		]
 	"/>
@@ -82,7 +83,7 @@
 		</rdf:RDF>
 	</xsl:template>
 	
-	<xsl:template match="/c:*" xmlns:c="http://www.w3.org/ns/xproc-step">
+	<xsl:template match="c:*">
 		<rdf:RDF>
 			<xsl:attribute name="xml:base"><xsl:value-of select="$resource-base-uri"/></xsl:attribute>
 			<foaf:Document rdf:about="{$document-uri}">
@@ -95,4 +96,4 @@
 	</xsl:template>
 	
 </xsl:stylesheet>
-	
+
