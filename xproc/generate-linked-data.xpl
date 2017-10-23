@@ -37,11 +37,17 @@
 	-->
 	
 	<p:option name="sitemapindex-uri" required="true"/>
+	<!--
+	<apo:harvest-page page-uri="http://apo.org.au/node/101601"/>
+	<apo:harvest-page page-uri="http://apo.org.au/node/20111"/>
+	<apo:harvest-page page-uri="http://apo.org.au/node/113376"/>
+	<apo:harvest-page page-uri="http://apo.org.au/node/105656"/>
+	-->
 	
 	<apo:harvest-sitemapindex>
 		<p:with-option name="sitemapindex-uri" select="$sitemapindex-uri"/>
 	</apo:harvest-sitemapindex>
-
+	
 	<p:declare-step type="apo:harvest-sitemapindex" name="harvest-sitemapindex">
 		<p:option name="sitemapindex-uri" required="true"/>
 		<!-- for each sitemap x in sitemapindex, harvest-sitemap x -->
@@ -90,31 +96,25 @@
 			<p:unescape-markup name="convert-to-xhtml" content-type="text/html"/>
 			<!-- Discard the wrapper element -->
 			<p:unwrap match="/*"/>
+			<!-- fix up dud URLs -->
+			<p:xslt name="sanitize-uri">
+				<p:input port="parameters"><p:empty/></p:input>
+				<p:input port="stylesheet">
+					<p:document href="sanitize-uri.xsl"/>
+				</p:input>
+			</p:xslt>
 			<!-- extract and store metadata -->
 			<p:for-each name="page-containing-link-to-an-object" xmlns:xhtml="http://www.w3.org/1999/xhtml">
 				<p:iteration-source select="/xhtml:html[.//xhtml:div[@class='view-content']//xhtml:a/@href]"/>
-				
-				<!-- extract metadata from HTML, store as RDF graph -->
 				<p:variable name="object-uri" select="(//xhtml:div[@class='view-content']//xhtml:a/@href)[1]"/>
-				<p:variable name="object-title" select="//xhtml:meta[@name='dcterms.title']/@content"/>
+				<!-- extract metadata from HTML, store as RDF graph -->
 				<!-- generate RDF graph -->
-				<p:template name="web-page-graph">
+				<p:xslt name="web-page-graph">
 					<p:with-param name="page-uri" select="$page-uri"/>
-					<p:with-param name="object-uri" select="$object-uri"/>
-					<p:with-param name="object-title" select="$object-title"/>
-					<p:input port="source"><p:empty/></p:input>
-					<p:input port="template">
-						<p:inline>
-							<rdf:Description rdf:about="{$object-uri}" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-								<!-- the digital object (e.g. a PDF) is the primary topic of the html ("splash") page -->
-								<foaf:isPrimaryTopicOf xmlns:foaf="http://xmlns.com/foaf/0.1/" rdf:resource="{$page-uri}"/>
-								<!-- the digital object's title comes from the html page's metadata -->
-								<dcterms:title xmlns:dcterms="http://purl.org/dc/terms/">{$object-title}</dcterms:title>
-								<!-- TODO extract more metadata from the HTML page -->
-							</rdf:Description>
-						</p:inline>
+					<p:input port="stylesheet">
+						<p:document href="apo-node-html-to-rdf.xsl"/>
 					</p:input>
-				</p:template>
+				</p:xslt>				
 				<apo:store-graph name="save-web-page-graph">
 					<p:with-option name="graph-uri" select="$page-uri"/>
 				</apo:store-graph>
