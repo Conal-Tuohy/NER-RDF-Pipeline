@@ -58,7 +58,16 @@
 		<p:group>
 			<p:variable name="hash" select="/*"/>
 			<p:variable name="encoded-href" select="encode-for-uri(encode-for-uri($href))"/>
-			<p:variable name="file-name" select="concat($cache-location, $hash, '/', $encoded-href, '.xml')"/>
+			<p:variable name="file-name" select="
+				concat(
+					substring(
+						concat($cache-location, $hash, '/', $encoded-href),
+						1,
+						251
+					), 
+					'.xml'
+				)
+			"/>
 			<p:try>
 				<p:group name="read-from-cache">
 					<p:load>
@@ -101,7 +110,7 @@
 					</p:try>
 					<p:identity name="downloaded-file-or-error-message"/>
 					<cx:message name="about-to-cache-downloaded-file">
-						<p:with-option name="message" select="concat('Caching download: ', $href)"/>
+						<p:with-option name="message" select="concat('Caching download: ', $href, ' in ', $file-name)"/>
 					</cx:message>
 					<p:store>
 						<p:with-option name="href" select="$file-name"/>
