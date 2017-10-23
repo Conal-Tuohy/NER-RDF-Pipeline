@@ -9,6 +9,7 @@
 	xmlns:sim="http://purl.org/ontology/similarity/"
 	xmlns:geo="http://www.w3.org/2003/01/geo/wgs84_pos#"
 	xmlns:dct="http://purl.org/dc/elements/1.1/"
+	xmlns:schema="http://schema.org/"
 	xmlns:c="http://www.w3.org/ns/xproc-step">
 	
 	<xsl:param name="resource-base-uri"/>
@@ -46,7 +47,7 @@
 			<xsl:attribute name="xml:base"><xsl:value-of select="$resource-base-uri"/></xsl:attribute>
 			<foaf:Document rdf:about="{$document-uri}">
 				<xsl:for-each select="$names">
-					<foaf:topic>
+					<schema:mentions>
 						<!-- describe the Named Entity recognised -->
 						<xsl:variable name="name-type">
 							<xsl:apply-templates select="." mode="type-curie"/><!-- e.g. "foaf:Person", geo:SpatialThing -->
@@ -59,7 +60,7 @@
 								<xsl:apply-templates mode="id" select="."/>
 							</xsl:attribute>
 						</xsl:element>
-					</foaf:topic>
+					</schema:mentions>
 				</xsl:for-each>
 			</foaf:Document>
 			<xsl:for-each-group select="$names" group-by="@content">
