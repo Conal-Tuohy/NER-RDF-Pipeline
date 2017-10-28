@@ -18,6 +18,10 @@
 	
 		<p:option name="href" required="true"/>
 		<p:option name="cache-location" select=" '/var/cache/apo/' "/>
+		<cx:message name="getting-uri">
+			<p:with-option name="message" select="concat('Getting URI: ', $href)"/>
+			<p:input port="source"><p:empty/></p:input>
+		</cx:message>
 		<file:mkdir fail-on-error="false">
 			<p:with-option name="href" select="$cache-location"/>
 		</file:mkdir>
@@ -57,71 +61,97 @@
 		</p:xslt>
 		<p:group>
 			<p:variable name="hash" select="/*"/>
-			<p:variable name="encoded-href" select="encode-for-uri(encode-for-uri($href))"/>
-			<p:variable name="file-name" select="
-				concat(
-					substring(
-						concat($cache-location, $hash, '/', $encoded-href),
-						1,
-						251
-					), 
-					'.xml'
-				)
-			"/>
-			<p:try>
-				<p:group name="read-from-cache">
-					<p:load>
-						<p:with-option name="href" select="$file-name"/>
-					</p:load>
-					<cx:message name="document-loaded-from-cache">
-						<p:with-option name="message" select="concat('Read from cache: ', $href)"/>
-					</cx:message>
-				</p:group>
-				<p:catch name="not-found-in-cache">				
-					<file:mkdir fail-on-error="false">
-						<p:with-option name="href" select="concat($cache-location, $hash)"/>
-					</file:mkdir>
-					<p:template name="load-document">
-						<p:with-param name="href" select="$href"/>
-						<p:input port="source"><p:empty/></p:input>
-						<p:input port="template">
-							<p:inline>
-								<c:request href="{$href}" method="GET" detailed="true"/>
-							</p:inline>
-						</p:input>
-					</p:template>
-					<cx:message name="about-to-download">
-						<p:with-option name="message" select="concat('Downloading: ', $href)"/>
-					</cx:message>
-					<p:try name="download">
-						<p:group>
-							<p:http-request/>
-						</p:group>
-						<p:catch name="failed-to-download">
-							<cx:message name="log-download-failure">
-								<p:with-option name="message" select="concat('Failed to download: ', $href)"/>
-							</cx:message>
-							<p:identity name="download-error-message">
-								<p:input port="source">
-									<p:pipe step="failed-to-download" port="error"/>
-								</p:input>
-							</p:identity>
-						</p:catch>
-					</p:try>
-					<p:identity name="downloaded-file-or-error-message"/>
-					<cx:message name="about-to-cache-downloaded-file">
-						<p:with-option name="message" select="concat('Caching download: ', $href, ' in ', $file-name)"/>
-					</cx:message>
-					<p:store>
-						<p:with-option name="href" select="$file-name"/>
-					</p:store>				
-					<p:identity>
-						<p:input port="source">
-							<p:pipe step="downloaded-file-or-error-message" port="result"/>
-						</p:input>
-					</p:identity>
-				</p:catch>
-			</p:try>
+			<p:xslt name="make-cache-filename">
+				<p:with-param name="href" select="$href"/>
+				<p:input port="source"><p:inline><ignored/></p:inline></p:input>
+				<p:input port="stylesheet">
+					<p:inline>
+						<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0">
+							<xsl:param name="href"/>
+							<xsl:variable name="max-length" select="251"/>
+							<xsl:template match="/">
+								<filename><xsl:call-template name="get-filename">
+									<xsl:with-param name="filename" select="substring($href, 1, $max-length)"/>
+								</xsl:call-template></filename>
+							</xsl:template>
+							<xsl:template name="get-filename">
+								<xsl:param name="filename"/>
+								<xsl:variable name="encoded-filename" select="concat(encode-for-uri(encode-for-uri($filename)), '.xml')"/>
+								<xsl:choose>
+									<xsl:when test="string-length($encoded-filename) &lt;= $max-length">
+										<!-- filename is not too long -->
+										<xsl:value-of select="$encoded-filename"/>
+									</xsl:when>
+									<xsl:otherwise>
+										<!-- filename after encoding is too long - lose the last char and try again -->
+										<xsl:call-template name="get-filename">
+											<xsl:with-param name="filename" select="substring($filename, 1, string-length($filename) - 1)"/>
+										</xsl:call-template>
+									</xsl:otherwise>
+								</xsl:choose>
+							</xsl:template>
+						</xsl:stylesheet>
+					</p:inline>
+				</p:input>
+			</p:xslt>
+			<p:group>
+				<p:variable name="encoded-href" select="/*"/>
+				<p:variable name="file-name" select="concat($cache-location, $hash, '/', $encoded-href)"/>
+				<p:try>
+					<p:group name="read-from-cache">
+						<p:load>
+							<p:with-option name="href" select="$file-name"/>
+						</p:load>
+						<cx:message name="document-loaded-from-cache">
+							<p:with-option name="message" select="concat('Read from cache: ', $file-name)"/>
+						</cx:message>
+					</p:group>
+					<p:catch name="not-found-in-cache">				
+						<file:mkdir fail-on-error="false">
+							<p:with-option name="href" select="concat($cache-location, $hash)"/>
+						</file:mkdir>
+						<p:template name="load-document">
+							<p:with-param name="href" select="$href"/>
+							<p:input port="source"><p:empty/></p:input>
+							<p:input port="template">
+								<p:inline>
+									<c:request href="{$href}" method="GET" detailed="true"/>
+								</p:inline>
+							</p:input>
+						</p:template>
+						<cx:message name="about-to-download">
+							<p:with-option name="message" select="concat('Downloading: ', $href)"/>
+						</cx:message>
+						<p:try name="download">
+							<p:group>
+								<p:http-request/>
+							</p:group>
+							<p:catch name="failed-to-download">
+								<cx:message name="log-download-failure">
+									<p:with-option name="message" select="concat('Failed to download: ', $href)"/>
+								</cx:message>
+								<p:identity name="download-error-message">
+									<p:input port="source">
+										<p:pipe step="failed-to-download" port="error"/>
+									</p:input>
+								</p:identity>
+							</p:catch>
+						</p:try>
+						<p:identity name="downloaded-file-or-error-message"/>
+						<cx:message name="about-to-cache-downloaded-file">
+							<p:with-option name="message" select="concat('Caching download: ', $href, ' in ', $file-name)"/>
+						</cx:message>
+						<p:store>
+							<p:with-option name="href" select="$file-name"/>
+						</p:store>				
+						<p:identity>
+							<p:input port="source">
+								<p:pipe step="downloaded-file-or-error-message" port="result"/>
+							</p:input>
+						</p:identity>
+					</p:catch>
+				</p:try>
+			</p:group>
 		</p:group>
 		
 	</p:declare-step>
