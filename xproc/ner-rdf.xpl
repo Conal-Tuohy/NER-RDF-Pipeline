@@ -18,8 +18,9 @@
 			<p:group name="parse-digital-object-to-create-rdf">
 				<p:output port="result"/>
 				<p:documentation>Format the document into a request for NER</p:documentation>
-				<!-- strip charset from content type -->
+				<!-- strip charset from content type because Tika doesn't like it; it will work the charset out itself anyway -->
 				<p:string-replace match="/c:body/@content-type[contains(., ';')]" replace="substring-before(., ';')"/>
+				<cx:message message="Preparing NER request ..."/>
 				<p:template name="construct-ner-request">
 					<p:input port="parameters"><p:empty/></p:input>
 					<p:input port="template">
@@ -32,12 +33,8 @@
 					</p:input>
 				</p:template>
 				<p:documentation>Submit the NER request to Tika</p:documentation>
-				<p:http-request name="tika-web-service"/>
-				<p:identity>
-					<p:input port="source" select="/c:response/c:body/*">
-						<p:pipe step="tika-web-service" port="result"/>
-					</p:input>
-				</p:identity>
+				<cx:message message="Submitting document for NER ..."/>
+				<p:http-request name="tika-web-service" />
 				<!--
 				QAZ disabling because of poor performance
 				<p:xslt name="upconvert-ner-results">
@@ -63,7 +60,7 @@
 				</cx:message>
 			</p:catch>
 		</p:try>
-
+		<cx:message message="Converting NER results to RDF ..."/>
 		<p:xslt name="convert-ner-results-to-rdf">
 			<p:with-param name="document-uri" select="$document-uri"/>
 			<p:with-param name="resource-base-uri" select="$resource-base-uri"/>
