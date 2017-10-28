@@ -40,39 +40,72 @@ replacing
 	
 	<xsl:param name="resource-base-uri"/>
 	<xsl:param name="page-uri"/>
+	<xsl:variable name="node-type" select="tokenize(/html/body/@class)[starts-with(., 'node-type')]"/>
 		
-	<xsl:template match="/html">	
-		<xsl:variable name="object-uri" select="(//div[@class='view-content']//a/@href)[1]"/>
-
+	<xsl:template match="/html">
 		<rdf:RDF>
-			<rdf:Description rdf:about="" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-				<xsl:attribute name="xml:base" select="$object-uri"/>
-				<!-- the digital object (e.g. a PDF) is the primary topic of the html ("splash") page -->
-				<foaf:isPrimaryTopicOf xmlns:foaf="http://xmlns.com/foaf/0.1/" rdf:resource="{$page-uri}"/>
-				<!-- the digital object's title comes from the html page's metadata -->
-				<dcterms:title><xsl:value-of select="//meta[@name='dcterms.title']/@content"/></dcterms:title>
-				<!-- publisher is listed as "publisher-name" -->
-				<xsl:apply-templates select="//div[@class='field-name-field-publisher-name']//a/@href">
-					<xsl:with-param name="predicate" select=" 'dcterms:publisher' "/>
-				</xsl:apply-templates>
-				<!-- creators are listed following the heading 'CREATORS' -->
-				<xsl:apply-templates select="//div[@class='label-above'][.='CREATORS']/following-sibling::div[1]//a/@href">
-					<xsl:with-param name="predicate" select=" 'dcterms:creator' "/>
-				</xsl:apply-templates>
-				<!-- subjects are listed as 'broad subject areas', "subjects", and also "keywords" -->
-				<xsl:apply-templates select="//div[tokenize(@class)=('field-name-field-subject', 'field-name-field-subject-broad', 'field-name-field-keyword')]//a/@href">
-					<xsl:with-param name="predicate" select=" 'dcterms:subject' "/>
-				</xsl:apply-templates>
-				<!-- spatial terms are 'geographic-location' -->
-				<xsl:apply-templates select="//div[tokenize(@class)='field-name-field-geographic-location']//a/@href">
-					<xsl:with-param name="predicate" select=" 'dcterms:spatial' "/>
-				</xsl:apply-templates>
-				<!-- containment within APO's "Collections" is modelled as dcterms:isPartOf -->
-				<xsl:apply-templates select="//div[tokenize(@class)='field-name-field-apo-collections']//a/@href">
-					<xsl:with-param name="predicate" select=" 'dcterms:isPartOf' "/>
-				</xsl:apply-templates>
-			</rdf:Description>
+			<xsl:attribute name="xml:base" select="$page-uri"/>
+			<xsl:choose>
+				<xsl:when test="$node-type='node-type-resource'">
+					<xsl:call-template name="policy-report"/>
+				</xsl:when>
+				<xsl:when test="$node-type='node-type-party'">
+					<xsl:call-template name="party"/>
+				</xsl:when>
+				<xsl:otherwise>
+					<xsl:call-template name="unknown-node-type">
+						<xsl:with-param name="node-type" select="$node-type"/>
+					</xsl:call-template>
+				</xsl:otherwise>
+			</xsl:choose>
 		</rdf:RDF>
+	</xsl:template>
+	
+	<xsl:template name="unknown-node-type">
+		<xsl:param name="node-type"/>
+		<rdf:Description rdf:about="">
+			<rdfs:label><xsl:value-of select="/html/head/title"/></rdfs:label>
+			<rdfs:comment>unknown page type <xsl:value-of select="$node-type"/></rdfs:comment>
+		</rdf:Description>
+	</xsl:template>
+	
+	<xsl:template name="party">
+		<!-- generate graph describing the person or organisation which this page describes: label, type, related organisations ... -->
+		<foaf:Agent rdf:about="#"><!-- using "#" URI to denote the subject of this page -->
+			<!-- the organistion is the primary topic of the html page -->
+			<foaf:isPrimaryTopicOf rdf:resource=""/>
+			<foaf:name><xsl:value-of select="/html/head/meta[@name='dcterms.title']/@content"/></foaf:name>
+		</foaf:Agent>
+	</xsl:template>
+	
+	<xsl:template name="policy-report">
+		<xsl:variable name="object-uri" select="(//div[@class='view-content']//a/@href)[1]"/>
+		<foaf:Document rdf:about="{$object-uri}">
+			<!-- the digital object (e.g. a PDF) is the primary topic of the html ("splash") page -->
+			<foaf:isPrimaryTopicOf xmlns:foaf="http://xmlns.com/foaf/0.1/" rdf:resource="{$page-uri}"/>
+			<!-- the digital object's title comes from the html page's metadata -->
+			<dcterms:title><xsl:value-of select="/html/head/meta[@name='dcterms.title']/@content"/></dcterms:title>
+			<!-- publisher is listed as "publisher-name" -->
+			<xsl:apply-templates select="//div[@class='field-name-field-publisher-name']//a/@href">
+				<xsl:with-param name="predicate" select=" 'dcterms:publisher' "/>
+			</xsl:apply-templates>
+			<!-- creators are listed following the heading 'CREATORS' -->
+			<xsl:apply-templates select="//div[@class='label-above'][.='CREATORS']/following-sibling::div[1]//a/@href">
+				<xsl:with-param name="predicate" select=" 'dcterms:creator' "/>
+			</xsl:apply-templates>
+			<!-- subjects are listed as 'broad subject areas', "subjects", and also "keywords" -->
+			<xsl:apply-templates select="//div[tokenize(@class)=('field-name-field-subject', 'field-name-field-subject-broad', 'field-name-field-keyword')]//a/@href">
+				<xsl:with-param name="predicate" select=" 'dcterms:subject' "/>
+			</xsl:apply-templates>
+			<!-- spatial terms are 'geographic-location' -->
+			<xsl:apply-templates select="//div[tokenize(@class)='field-name-field-geographic-location']//a/@href">
+				<xsl:with-param name="predicate" select=" 'dcterms:spatial' "/>
+			</xsl:apply-templates>
+			<!-- containment within APO's "Collections" is modelled as dcterms:isPartOf -->
+			<xsl:apply-templates select="//div[tokenize(@class)='field-name-field-apo-collections']//a/@href">
+				<xsl:with-param name="predicate" select=" 'dcterms:isPartOf' "/>
+			</xsl:apply-templates>
+		</foaf:Document>
 	</xsl:template>
 	
 	<xsl:template match="a/@href">
