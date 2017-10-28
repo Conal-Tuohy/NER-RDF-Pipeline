@@ -32,21 +32,14 @@
 	<!-- library for performing ner and producing rdf -->
 	<p:import href="ner-rdf.xpl"/>
 	
-	<!-- 
-	<p:import href="xproc-z-library.xpl"/>
-	-->
-	
 	<p:option name="sitemapindex-uri" required="true"/>
-	<!--
-	<apo:harvest-page page-uri="http://apo.org.au/node/101601"/>
-	<apo:harvest-page page-uri="http://apo.org.au/node/20111"/>
-	<apo:harvest-page page-uri="http://apo.org.au/node/113376"/>
-	<apo:harvest-page page-uri="http://apo.org.au/node/105656"/>
-	-->
-	
 	<apo:harvest-sitemapindex>
 		<p:with-option name="sitemapindex-uri" select="$sitemapindex-uri"/>
 	</apo:harvest-sitemapindex>
+	<!--
+	TIKA error: TIKA-198
+	<apo:harvest-page page-uri="http://apo.org.au/node/14333"/>
+	-->
 	
 	<p:declare-step type="apo:harvest-sitemapindex" name="harvest-sitemapindex">
 		<p:option name="sitemapindex-uri" required="true"/>
@@ -93,9 +86,11 @@
 			<!-- convert any HTTP errors to RDF and store them -->
 			<p:iteration-source select="/c:response[@status='200']/c:body"/>
 			<!-- Tidy the HTML page up into XHTML form -->
+			<cx:message message="converting to XHTML ..."/>
 			<p:unescape-markup name="convert-to-xhtml" content-type="text/html"/>
 			<!-- Discard the wrapper element -->
 			<p:unwrap match="/*"/>
+			<cx:message message="Fixing up invalid URIs ..."/>
 			<!-- fix up dud URLs -->
 			<p:xslt name="sanitize-uri">
 				<p:input port="parameters"><p:empty/></p:input>
@@ -103,25 +98,34 @@
 					<p:document href="sanitize-uri.xsl"/>
 				</p:input>
 			</p:xslt>
+			<apo:dump href="/tmp/report.xhtml"/>
 			<!-- extract and store metadata -->
-			<p:for-each name="page-containing-link-to-an-object" xmlns:xhtml="http://www.w3.org/1999/xhtml">
-				<p:iteration-source select="/xhtml:html[.//xhtml:div[@class='view-content']//xhtml:a/@href]"/>
-				<p:variable name="object-uri" select="(//xhtml:div[@class='view-content']//xhtml:a/@href)[1]"/>
-				<!-- extract metadata from HTML, store as RDF graph -->
-				<!-- generate RDF graph -->
-				<p:xslt name="web-page-graph">
-					<p:with-param name="page-uri" select="$page-uri"/>
-					<p:input port="stylesheet">
-						<p:document href="apo-node-html-to-rdf.xsl"/>
-					</p:input>
-				</p:xslt>				
-				<apo:store-graph name="save-web-page-graph">
-					<p:with-option name="graph-uri" select="$page-uri"/>
-				</apo:store-graph>
+			<!-- extract metadata from HTML, store as RDF graph -->
+			<!-- generate RDF graph -->
+			
+			<cx:message message="Generating RDF graph from web page ..."/>
+			<p:xslt name="web-page-graph">
+				<p:with-param name="page-uri" select="$page-uri"/>
+				<p:input port="stylesheet">
+					<p:document href="apo-node-html-to-rdf.xsl"/>
+				</p:input>
+			</p:xslt>				
+			<apo:dump href="/tmp/graph.rdf"/>
+			<apo:store-graph name="save-web-page-graph">
+				<p:with-option name="graph-uri" select="$page-uri"/>
+			</apo:store-graph>
+			
+			<p:for-each name="link-to-document" xmlns:html="http://www.w3.org/1999/xhtml">
+				<p:iteration-source select="(/html:html//html:div[@class='view-content']//html:a[@href])[1]">
+					<p:pipe step="sanitize-uri" port="result"/>
+				</p:iteration-source>
+				<p:variable name="object-uri" select="/html:a/@href"/>
+				<cx:message message="Web page contains link to digital object"/>
 				<!-- download the document (using cache) -->
 				<apo:http-get name="digital-object">
 					<p:with-option name="href" select="$object-uri"/>
 				</apo:http-get>
+				<apo:dump href="/tmp/object.xml"/>
 				<p:for-each name="object-retrieved">
 					<!-- TODO convert any HTTP errors to RDF and store them -->
 					<p:iteration-source select="
@@ -139,11 +143,13 @@
 					<p:store href="object.xml"/>
 					<p:identity><p:input port="source"><p:pipe step="digital-object" port="result"/></p:input></p:identity>
 				-->
+					<cx:message message="Using NER to generate RDF ..."/>
 					<!-- perform NER on it, and convert the results to RDF -->
 					<apo:recognise-named-entities name="mined-data">
 						<p:with-option name="document-uri" select="$object-uri"/>
 					</apo:recognise-named-entities>
 					<!-- store the NER RDF -->
+					<cx:message message="Storing RDF graph in SPARQL store ..."/>
 					<apo:store-graph>
 						<p:with-option name="graph-uri" select="$object-uri"/>
 					</apo:store-graph>
@@ -227,6 +233,18 @@
 		</p:template>
 		<p:http-request/>
 		<p:sink/>
+	</p:declare-step>
+	
+	<!-- a debugging step that dumps the document to the specified location and also passes it through -->
+	<p:declare-step name="dump" type="apo:dump">
+		<p:input port="source"/>
+		<p:output port="result">
+			<p:pipe step="dump" port="source"/>
+		</p:output>
+		<p:option name="href" required="true"/>
+		<p:store>
+			<p:with-option name="href" select="$href"/>
+		</p:store>
 	</p:declare-step>
 	
 </p:declare-step>
