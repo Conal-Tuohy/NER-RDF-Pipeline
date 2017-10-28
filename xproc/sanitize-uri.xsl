@@ -13,7 +13,7 @@ A web browser would recognise those chars and escape them. This transform does t
 	
 	<xsl:template match="@href">
 		<xsl:attribute name="href">
-			<xsl:analyze-string select="." regex="(https?://[^\?/]*)([^?#]*)(.*)">
+			<xsl:analyze-string select="." regex="(https?://[^\?/]*)?([^?#]*)(.*)">
 				<xsl:matching-substring>
 					<!-- regex-group(1) = scheme and host -->
 					<!-- regex-group(2) = path -->
